@@ -161,7 +161,7 @@ Status Effects: {[effect['name'] for effect in self.status_effects]}
 class Warrior(Character):
     def __init__(self, name):
         super().__init__(name, 120, 25, 10)
-        self.rage = 0
+        self.rage = 50
         self.max_rage = 100
         self.special_moves = {
             'berserker': {'stamina_cost': 30, 'rage_required': 50},
@@ -252,7 +252,7 @@ class Rogue(Character):
         super().__init__(name, 90, 30, 8)
         self.energy = 100
         self.max_energy = 100
-        self.stealth = False
+        self.stealth = True
         self.abilities = {
             'backstab': {'energy_cost': 30, 'power': 2.0, 'requires_stealth': True},
             'poison_strike': {'energy_cost': 25, 'power': 1.5, 'poison_chance': 0.4},

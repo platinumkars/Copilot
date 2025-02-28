@@ -527,6 +527,30 @@ class Bandit(Character):
 class Game:
     def __init__(self):
         self.initialize_game_systems()
+        # Initialize quests list
+        self.quests = [
+            {
+                "name": "The First Trial",
+                "enemy": Goblin(),
+                "required_level": 1,
+                "reward": 50,
+                "environment": "day"
+            },
+            {
+                "name": "Forest Patrol",
+                "enemy": Bandit(),
+                "required_level": 2,
+                "reward": 75,
+                "environment": "night"
+            },
+            {
+                "name": "Orc Invasion",
+                "enemy": Orc(),
+                "required_level": 3,
+                "reward": 100,
+                "environment": "rain"
+            }
+        ]
         self.player = None
         self.current_quest = 0
         self.gold = 100

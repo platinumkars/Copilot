@@ -527,23 +527,13 @@ class Bandit(Character):
 class Game:
     def __init__(self):
         self.initialize_game_systems()
-        self.quests = [
-            {
-                "name": "The First Trial",
-                "enemy": Goblin(),
-                "required_level": 1,
-                "reward": 50,
-                "environment": "day"
-            }
-            # ... other quests ...
-        ]
-        self.player = None  # Initialize after character creation
-        self.create_character()  # Create character after initialization
+        self.player = None
         self.current_quest = 0
         self.gold = 100
         self.turns = 0
         self.time_of_day = 'day'
-        self.game_version = "basic"  # Add version indicator
+        self.game_version = "basic"
+        self.player = self.create_character()  # Create character after systems init
 
     def upgrade_to_extended(self):
         """Upgrade basic game to extended version"""
@@ -581,24 +571,32 @@ class Game:
         
     def create_character(self):
         print("Choose your class:")
-        print("1. Warrior - High HP and defense, specialized in physical combat")
-        print("2. Mage - Powerful spells but low defense")
+        print("1. Warrior - High HP and defense")
+        print("2. Mage - Powerful spells")
         print("3. Rogue - Stealth and critical strikes")
-        print("4. Archer - Ranged attacks and status effects")
+        print("4. Archer - Ranged attacks")
         
         while True:
-            choice = input("Enter the number of your choice (1-4): ")
-            name = input("Enter your character's name: ")
-            if choice == "1":
-                self.player = Warrior(name)
-            elif choice == "2":
-                self.player = Mage(name)
-            elif choice == "3":
-                self.player = Rogue(name)
-            elif choice == "4":
-                self.player = Archer(name)
-            else:
-                print("Invalid choice, please try again.")
+            try:
+                choice = input("Enter the number of your choice (1-4): ")
+                name = input("Enter your character's name: ")
+                
+                if choice == "1":
+                    self.player = Warrior(name)
+                    return self.player
+                elif choice == "2":
+                    self.player = Mage(name)
+                    return self.player
+                elif choice == "3":
+                    self.player = Rogue(name)
+                    return self.player
+                elif choice == "4":
+                    self.player = Archer(name)
+                    return self.player
+                else:
+                    print("Invalid choice, please try again.")
+            except Exception as e:
+                print(f"Error creating character: {e}")
 
     def play(self):
         try:
@@ -797,6 +795,10 @@ class Game:
         else:
             print("Invalid choice!")
 
+    def confirm_exit(self):
+        """Confirm if player wants to exit"""
+        return input("\nAre you sure you want to exit? (y/n): ").lower() == 'y'
+
 class ExtendedGame(Game):
     def __init__(self):
         super().__init__()
@@ -812,17 +814,20 @@ class ExtendedGame(Game):
 
             while self.player.is_alive():
                 try:
+                    # Update game state
                     self.update_game_state()
                     self.process_world_events()
                     self.show_enhanced_status()
-                    choice = self.get_extended_player_choice()
                     
+                    # Get and process player choice
+                    choice = self.get_extended_player_choice()
                     if choice == 'x':
                         if self.confirm_exit():
                             break
                     else:
                         self.process_extended_choice(choice)
                     
+                    # Auto-save if enabled
                     if self.settings.get('auto_save', True):
                         self.save_game_state()
                         
@@ -832,7 +837,6 @@ class ExtendedGame(Game):
                     print(f"Unexpected error: {e}")
                     if not self.recover_game_state():
                         break
-                        
         finally:
             self.cleanup_game_resources()
             self.show_final_statistics()

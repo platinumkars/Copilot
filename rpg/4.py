@@ -565,7 +565,7 @@ class Game:
             print(f"Failed to save game state: {e}")
 
     def initialize_game_systems(self):
-        """Initialize game settings and systems"""
+        """Initialize all game systems"""
         self.settings = {
             'difficulty': 'normal',
             'permadeath': False,
@@ -575,6 +575,9 @@ class Game:
         self.active_buffs = []
         self.quest_log = []
         self.achievement_tracker = {}
+        self.current_location = "Starting Village"
+        self.turns = 0
+        self.time_of_day = 'day'
         
     def create_character(self):
         print("Choose your class:")
@@ -796,9 +799,44 @@ class Game:
 
 class ExtendedGame(Game):
     def __init__(self):
-        super().__init__()  # Call parent class init first
+        super().__init__()
         self.initialize_extended_systems()
     
+    def play(self):
+        """Main game loop for extended game"""
+        try:
+            print(f"\n{'='*60}")
+            print(f"Welcome to the Enhanced RPG Game, {self.player.name}!")
+            print(f"Current Location: {self.current_location}")
+            print(f"{'='*60}\n")
+
+            while self.player.is_alive():
+                try:
+                    self.update_game_state()
+                    self.process_world_events()
+                    self.show_enhanced_status()
+                    choice = self.get_extended_player_choice()
+                    
+                    if choice == 'x':
+                        if self.confirm_exit():
+                            break
+                    else:
+                        self.process_extended_choice(choice)
+                    
+                    if self.settings.get('auto_save', True):
+                        self.save_game_state()
+                        
+                except GameException as e:
+                    print(f"Game error: {e}")
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
+                    if not self.recover_game_state():
+                        break
+                        
+        finally:
+            self.cleanup_game_resources()
+            self.show_final_statistics()
+
     def initialize_extended_systems(self):
         """Initialize extended game specific systems"""
         self.side_quests = []
@@ -1253,6 +1291,28 @@ class ExtendedGame(Game):
             self.show_inventory()
         else:
             print("Invalid choice!")
+
+    def show_final_statistics(self):
+        """Display final game statistics"""
+        print("\nFinal Statistics:")
+        print(f"Quests Completed: {len([q for q in self.quests if q.get('completed', False)])}")
+        print(f"Total Gold Earned: {self.gold}")
+        print(f"Player Level: {self.player.level}")
+        print(f"Time Played: {self.turns} turns")
+
+    def process_world_events(self):
+        """Process random world events"""
+        if random.random() < 0.1:  # 10% chance for world event
+            event = self.generate_random_event()
+            self.handle_world_event(event)
+
+    def show_enhanced_status(self):
+        """Show enhanced game status including weather and reputation"""
+        super().show_status()  # Show basic status first
+        print(f"\nWeather: {self.current_weather}")
+        print("\nReputation:")
+        for faction, data in self.reputation.items():
+            print(f"{faction}: {data['title']} ({data['value']})")
 
 if __name__ == "__main__":
     try:

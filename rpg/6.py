@@ -17,6 +17,8 @@ class Character:
         self.current_weapon = "Basic Sword"
         self.abilities = {}
         self.status_effects = []
+        self.armor = {"Basic Leather": 5}
+        self.current_armor = "Basic Leather"
         
         # Initialize base abilities based on class
         self.update_abilities()
@@ -216,9 +218,11 @@ def combat(player, enemy):
             else:
                 print_slow("You failed to run away!")
         
+        # In combat function, replace enemy attack section
         if enemy.health > 0:
-            player.health -= enemy.damage
-            print_slow(f"The {enemy.name} attacks you for {enemy.damage} damage!")
+            damage_taken = process_enemy_attack(player, enemy)
+            player.health -= damage_taken
+            print_slow(f"The {enemy.name} attacks you for {damage_taken} damage! (Reduced by armor)")
             
     if player.health <= 0:
         print_slow("You have been defeated...")
@@ -252,15 +256,34 @@ def combat(player, enemy):
     
     return True
 
+# Update shop function's item handling
 def shop(player):
     items = {
-        "Health Potion": {"cost": 15, "effect": "Restore 40 HP"},  # More healing, lower cost
-        "Mana Potion": {"cost": 20, "effect": "Restore 35 MP"},    # More mana, lower cost
-        "Iron Sword": {"cost": 80, "damage": 12},                  # More accessible early weapon
-        "Steel Sword": {"cost": 150, "damage": 20},                # Better value
+        # Potions
+        "Health Potion": {"cost": 15, "effect": "Restore 40 HP"},
+        "Mana Potion": {"cost": 20, "effect": "Restore 35 MP"},
+        "Greater Health Potion": {"cost": 40, "effect": "Restore 80 HP"},
+        "Greater Mana Potion": {"cost": 45, "effect": "Restore 70 MP"},
+        
+        # Basic Weapons
+        "Iron Sword": {"cost": 80, "damage": 12},
+        "Steel Sword": {"cost": 150, "damage": 20},
         "Magic Staff": {"cost": 120, "damage": 10, "mana_bonus": 25},
+        
+        # Advanced Weapons
+        "Flame Sword": {"cost": 300, "damage": 35},
+        "Frost Staff": {"cost": 280, "damage": 30, "mana_bonus": 40},
+        "Shadow Dagger": {"cost": 250, "damage": 28},
+        "Nature's Bow": {"cost": 270, "damage": 32},
+        
+        # Basic Armor
         "Leather Armor": {"cost": 100, "defense": 8},
-        "Chain Mail": {"cost": 200, "defense": 15}
+        "Chain Mail": {"cost": 200, "defense": 15},
+        
+        # Advanced Armor
+        "Plate Armor": {"cost": 400, "defense": 25},
+        "Mage Robes": {"cost": 350, "defense": 12, "mana_bonus": 50},
+        "Dragon Scale": {"cost": 500, "defense": 30}
     }
     
     while True:
@@ -268,7 +291,14 @@ def shop(player):
         print_slow(f"Your gold: {player.gold}")
         print_slow("\nAvailable items:")
         for item, details in items.items():
-            print_slow(f"{item}: {details['cost']} gold - {details.get('effect', 'Equipment')}")
+            desc = details.get('effect', 'Equipment')
+            if 'damage' in details:
+                desc = f"Damage: {details['damage']}"
+            if 'defense' in details:
+                desc = f"Defense: {details['defense']}"
+            if 'mana_bonus' in details:
+                desc += f", Mana Bonus: {details['mana_bonus']}"
+            print_slow(f"{item}: {details['cost']} gold - {desc}")
         print_slow("\nEnter item name to buy (or 'exit' to leave):")
         
         choice = input("> ").title()
@@ -280,6 +310,8 @@ def shop(player):
                 player.gold -= items[choice]["cost"]
                 if "damage" in items[choice]:
                     player.weapons[choice] = items[choice]["damage"]
+                elif "defense" in items[choice]:
+                    player.armor[choice] = items[choice]["defense"]
                 else:
                     player.inventory[choice] = player.inventory.get(choice, 0) + 1
                 print_slow(f"Bought {choice}!")
@@ -295,10 +327,18 @@ def show_abilities(player):
         print_slow(f"{ability}: {details['description']} (Mana cost: {details['mana_cost']})")
 
 def process_attack(player, enemy):
-    """Calculate attack damage based on player's current weapon"""
+    """Calculate attack damage based on player's current weapon and enemy's attack"""
+    # Player attacking enemy
     base_damage = player.weapons[player.current_weapon]
     damage_variation = random.randint(-2, 2)
     return max(0, base_damage + damage_variation)
+
+def process_enemy_attack(player, enemy):
+    """Calculate damage taken by player considering armor"""
+    base_damage = enemy.damage
+    armor_reduction = int(player.armor[player.current_armor] * 0.5)  # Armor reduces damage by 50%
+    final_damage = max(1, base_damage - armor_reduction)  # Minimum 1 damage
+    return final_damage
 
 def process_ability(player, enemy, ability_name):
     """Process the use of a special ability"""
@@ -368,6 +408,80 @@ def process_status_effects(entity):
             entity.status_effects.remove(effect)
             print_slow(f"{effect['name']} effect has worn off!")
 
+# Update show_inventory_menu function
+def show_inventory_menu(player):
+    """Show inventory menu with weapon and armor switching options"""
+    while True:
+        print_slow("\n=== Inventory Menu ===")
+        print_slow("1. View Items")
+        print_slow("2. Change Weapon")
+        print_slow("3. Change Armor")
+        print_slow("4. Back")
+        
+        choice = input("> ")
+        
+        if choice == "1":
+            print_slow("\nInventory:")
+            for item, quantity in player.inventory.items():
+                print_slow(f"{item}: {quantity}")
+            print_slow("\nWeapons:")
+            for weapon, damage in player.weapons.items():
+                print_slow(f"{weapon} (Damage: {damage})")
+            print_slow(f"Currently equipped weapon: {player.current_weapon}")
+            print_slow("\nArmor:")
+            for armor, defense in player.armor.items():
+                print_slow(f"{armor} (Defense: {defense})")
+            print_slow(f"Currently equipped armor: {player.current_armor}")
+            
+        elif choice == "2":
+            print_slow("\nAvailable Weapons:")
+            weapons = list(player.weapons.keys())
+            for i, weapon in enumerate(weapons, 1):
+                damage = player.weapons[weapon]
+                print_slow(f"{i}. {weapon} (Damage: {damage})")
+                if weapon == player.current_weapon:
+                    print_slow("   *Currently Equipped*")
+            
+            try:
+                weapon_choice = int(input("\nChoose weapon number (0 to cancel): "))
+                if 0 < weapon_choice <= len(weapons):
+                    new_weapon = weapons[weapon_choice - 1]
+                    if new_weapon != player.current_weapon:
+                        player.current_weapon = new_weapon
+                        print_slow(f"Equipped {new_weapon}!")
+                    else:
+                        print_slow("That weapon is already equipped!")
+                elif weapon_choice != 0:
+                    print_slow("Invalid weapon number!")
+            except ValueError:
+                print_slow("Invalid input!")
+                
+        elif choice == "3":
+            print_slow("\nAvailable Armor:")
+            armors = list(player.armor.keys())
+            for i, armor in enumerate(armors, 1):
+                defense = player.armor[armor]
+                print_slow(f"{i}. {armor} (Defense: {defense})")
+                if armor == player.current_armor:
+                    print_slow("   *Currently Equipped*")
+            
+            try:
+                armor_choice = int(input("\nChoose armor number (0 to cancel): "))
+                if 0 < armor_choice <= len(armors):
+                    new_armor = armors[armor_choice - 1]
+                    if new_armor != player.current_armor:
+                        player.current_armor = new_armor
+                        print_slow(f"Equipped {new_armor}!")
+                    else:
+                        print_slow("That armor is already equipped!")
+                elif armor_choice != 0:
+                    print_slow("Invalid armor number!")
+            except ValueError:
+                print_slow("Invalid input!")
+                
+        elif choice == "4":
+            break
+
 def main():
     print_slow("Welcome to the Text RPG!")
     name = input("Enter your character's name: ")
@@ -416,13 +530,7 @@ def main():
             shop(player)
             
         elif choice == "3":
-            print_slow("\nInventory:")
-            for item, quantity in player.inventory.items():
-                print_slow(f"{item}: {quantity}")
-            print_slow("\nWeapons:")
-            for weapon, damage in player.weapons.items():
-                print_slow(f"{weapon} (Damage: {damage})")
-            print_slow(f"Currently equipped: {player.current_weapon}")
+            show_inventory_menu(player)  # Replace the old inventory display
             
         elif choice == "4":
             print_slow("Thanks for playing!")

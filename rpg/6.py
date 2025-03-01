@@ -117,14 +117,18 @@ class Character:
 
         self.abilities = base_abilities
 
+# Update Enemy class for better balance
 class Enemy:
-    def __init__(self, name, health, damage, exp_reward, gold_reward):
+    def __init__(self, name, health, damage, exp_reward, gold_reward, level=1):
         self.name = name
-        self.health = health * 1.2  # Increase base health by 20%
+        self.level = level
+        # Scale stats based on level
+        level_multiplier = 1 + (level - 1) * 0.2
+        self.health = int(health * level_multiplier)
         self.max_health = self.health
-        self.damage = int(damage * 0.8)  # Reduce base damage by 20%
-        self.exp_reward = exp_reward * 1.5  # Increase exp reward by 50%
-        self.gold_reward = int(gold_reward * 1.2)  # Increase gold reward by 20%
+        self.damage = int(damage * level_multiplier)
+        self.exp_reward = int(exp_reward * level_multiplier)
+        self.gold_reward = int(gold_reward * level_multiplier)
         self.status_effects = []
         self.abilities = {}
         self.is_boss = False
@@ -241,49 +245,55 @@ def combat(player, enemy):
     print_slow(f"Victory healing: Recovered {heal_amount} HP and {mana_restore} MP!")
     
     # In combat function, modify level up section
-    if player.exp >= 100 * (1 + (player.level * 0.1)):  # Scaling exp requirement
+    if player.exp >= calculate_exp_requirement(player.level):  # Scaling exp requirement
         player.level += 1
         player.exp = 0
-        health_increase = 20 + (player.level * 5)  # Scaling health increase
-        mana_increase = 10 + (player.level * 3)    # Scaling mana increase
-        player.max_health += health_increase
+        rewards = calculate_level_rewards(player.level)
+        player.max_health += rewards["health"]
         player.health = player.max_health
-        player.max_mana += mana_increase
+        player.max_mana += rewards["mana"]
         player.mana = player.max_mana
         print_slow(f"Level up! You are now level {player.level}!")
-        print_slow(f"Max HP increased by {health_increase}!")
-        print_slow(f"Max MP increased by {mana_increase}!")
+        print_slow(f"Max HP increased by {rewards['health']}!")
+        print_slow(f"Max MP increased by {rewards['mana']}!")
     
     return True
+
+# Update experience and level scaling
+def calculate_exp_requirement(level):
+    """Calculate experience needed for next level"""
+    return int(100 * (1 + (level * 0.5)))  # More gradual scaling
+
+def calculate_level_rewards(level):
+    """Calculate stats increase for level up"""
+    return {
+        "health": 15 + (level * 3),
+        "mana": 8 + (level * 2),
+        "damage_bonus": level,
+        "defense_bonus": level
+    }
 
 # Update shop function's item handling
 def shop(player):
     items = {
-        # Potions
-        "Health Potion": {"cost": 15, "effect": "Restore 40 HP"},
-        "Mana Potion": {"cost": 20, "effect": "Restore 35 MP"},
-        "Greater Health Potion": {"cost": 40, "effect": "Restore 80 HP"},
-        "Greater Mana Potion": {"cost": 45, "effect": "Restore 70 MP"},
+        # Basic items (always available)
+        "Health Potion": {"cost": 15, "effect": "Restore 40 HP", "min_level": 1},
+        "Mana Potion": {"cost": 20, "effect": "Restore 35 MP", "min_level": 1},
         
-        # Basic Weapons
-        "Iron Sword": {"cost": 80, "damage": 12},
-        "Steel Sword": {"cost": 150, "damage": 20},
-        "Magic Staff": {"cost": 120, "damage": 10, "mana_bonus": 25},
+        # Tier 1 Equipment (level 1-2)
+        "Iron Sword": {"cost": 50, "damage": 12, "min_level": 1},
+        "Wooden Staff": {"cost": 45, "damage": 10, "mana_bonus": 15, "min_level": 1},
+        "Leather Armor": {"cost": 60, "defense": 8, "min_level": 1},
         
-        # Advanced Weapons
-        "Flame Sword": {"cost": 300, "damage": 35},
-        "Frost Staff": {"cost": 280, "damage": 30, "mana_bonus": 40},
-        "Shadow Dagger": {"cost": 250, "damage": 28},
-        "Nature's Bow": {"cost": 270, "damage": 32},
+        # Tier 2 Equipment (level 3-4)
+        "Steel Sword": {"cost": 120, "damage": 20, "min_level": 3},
+        "Magic Staff": {"cost": 140, "damage": 18, "mana_bonus": 25, "min_level": 3},
+        "Chain Mail": {"cost": 150, "defense": 15, "min_level": 3},
         
-        # Basic Armor
-        "Leather Armor": {"cost": 100, "defense": 8},
-        "Chain Mail": {"cost": 200, "defense": 15},
-        
-        # Advanced Armor
-        "Plate Armor": {"cost": 400, "defense": 25},
-        "Mage Robes": {"cost": 350, "defense": 12, "mana_bonus": 50},
-        "Dragon Scale": {"cost": 500, "defense": 30}
+        # Tier 3 Equipment (level 5+)
+        "Flame Sword": {"cost": 250, "damage": 35, "min_level": 5},
+        "Frost Staff": {"cost": 260, "damage": 30, "mana_bonus": 40, "min_level": 5},
+        "Plate Armor": {"cost": 280, "defense": 25, "min_level": 5}
     }
     
     while True:
@@ -327,17 +337,18 @@ def show_abilities(player):
         print_slow(f"{ability}: {details['description']} (Mana cost: {details['mana_cost']})")
 
 def process_attack(player, enemy):
-    """Calculate attack damage based on player's current weapon and enemy's attack"""
-    # Player attacking enemy
+    """Calculate attack damage with better scaling"""
     base_damage = player.weapons[player.current_weapon]
-    damage_variation = random.randint(-2, 2)
-    return max(0, base_damage + damage_variation)
+    level_bonus = player.level * 2
+    variation = random.randint(-3, 3)
+    return max(1, base_damage + level_bonus + variation)
 
 def process_enemy_attack(player, enemy):
-    """Calculate damage taken by player considering armor"""
+    """Calculate enemy damage with better defense scaling"""
     base_damage = enemy.damage
-    armor_reduction = int(player.armor[player.current_armor] * 0.5)  # Armor reduces damage by 50%
-    final_damage = max(1, base_damage - armor_reduction)  # Minimum 1 damage
+    armor_value = player.armor[player.current_armor]
+    defense_reduction = int(armor_value * (0.4 + (player.level * 0.02)))  # Scales with level
+    final_damage = max(1, base_damage - defense_reduction)
     return final_damage
 
 def process_ability(player, enemy, ability_name):
@@ -484,57 +495,112 @@ def show_inventory_menu(player):
 
 def main():
     print_slow("Welcome to the Text RPG!")
-    name = input("Enter your character's name: ")
-    class_type = input("Choose your class (Warrior, Mage, Paladin, Necromancer, Assassin, Druid ): ")
-    player = Character(name, class_type)
+    print_slow("\nChoose your class:")
+    print_slow("1. Warrior - High HP and defense, strong melee attacks")
+    print_slow("2. Mage - Powerful spells and high mana")
+    print_slow("3. Paladin - Balanced stats with healing abilities")
+    print_slow("4. Necromancer - Dark magic and life drain")
+    print_slow("5. Assassin - High damage and critical strikes")
+    print_slow("6. Druid - Nature magic and versatile abilities")
+    
+    name = input("\nEnter your character's name: ")
+    while True:
+        class_choice = input("Choose your class (1-6): ")
+        if class_choice in ["1", "2", "3", "4", "5", "6"]:
+            break
+        print_slow("Invalid choice!")
+    
+    player = Character(name, class_choice)
+    print_slow(f"\nWelcome, {player.name} the {player.class_type}!")
     
     while True:
-        print_slow(f"\n{player.name} - Level {player.level}")
+        # Status display
+        print_slow(f"\n{'='*50}")
+        print_slow(f"{player.name} - Level {player.level}")
         print_slow(f"HP: {player.health}/{player.max_health}")
+        print_slow(f"MP: {player.mana}/{player.max_mana}")
+        print_slow(f"EXP: {player.exp}/{calculate_exp_requirement(player.level)}")
         print_slow(f"Gold: {player.gold}")
+        print_slow(f"Current Weapon: {player.current_weapon}")
+        print_slow(f"Current Armor: {player.current_armor}")
+        print_slow(f"{'='*50}")
+        
+        # Main menu
         print_slow("\nWhat would you like to do?")
         print_slow("1. Fight monsters")
         print_slow("2. Visit shop")
         print_slow("3. Check inventory")
-        print_slow("4. Quit")
+        print_slow("4. Rest (Heal 50% HP/MP for 20 gold)")
+        print_slow("5. Show abilities")
+        print_slow("6. Quit")
         
         choice = input("> ")
         
         if choice == "1":
+            # Enemy selection based on player level
             enemies = []
             spawn_table = [
-                (Enemy("Rat", 20, 3, 15, 10), 40),          # Weak enemy, high spawn rate
-                (Enemy("Goblin", 35, 5, 25, 20), 30),       # Basic enemy
-                (Enemy("Wolf", 45, 7, 35, 30), 15),         # Medium enemy
-                (Enemy("Bandit", 60, 9, 45, 40), 10),       # Strong enemy
-                (Enemy("Troll", 100, 12, 60, 50), 5),       # Mini-boss, rare spawn
+                (Enemy("Rat", 15, 2, 10, 5, 1), 40, 1),
+                (Enemy("Goblin", 25, 4, 20, 15, 1), 30, 1),
+                (Enemy("Wolf", 35, 6, 30, 25, 2), 15, 2),
+                (Enemy("Bandit", 45, 8, 40, 35, 3), 10, 3),
+                (Enemy("Troll", 80, 10, 50, 45, 4), 5, 4),
+                # Boss enemies (rare spawn)
+                (Enemy("Dragon", 200, 20, 100, 100, 5), 1, 5)
             ]
             
-            # Select enemy based on probability
             roll = random.uniform(0, 100)
             cumulative = 0
-            for enemy, chance in spawn_table:
-                cumulative += chance
-                if roll <= cumulative:
-                    enemies = [enemy]
-                    break
-            enemy = random.choice(enemies)
+            for enemy, chance, min_level in spawn_table:
+                if player.level >= min_level:
+                    cumulative += chance
+                    if roll <= cumulative:
+                        enemies = [enemy]
+                        break
             
-            result = combat(player, enemy)
-            if result == "fled":
-                continue  # Continue game loop if fled
-            elif not result:
-                break    # End game if defeated
+            if enemies:
+                enemy = random.choice(enemies)
+                result = combat(player, enemy)
+                if result == "fled":
+                    continue
+                elif not result:
+                    print_slow(f"\nGame Over! Final Level: {player.level}")
+                    print_slow(f"Gold collected: {player.gold}")
+                    break
+            else:
+                print_slow("No suitable enemies found!")
                 
         elif choice == "2":
             shop(player)
             
         elif choice == "3":
-            show_inventory_menu(player)  # Replace the old inventory display
+            show_inventory_menu(player)
             
         elif choice == "4":
-            print_slow("Thanks for playing!")
-            break
+            if player.gold >= 20:
+                heal_amount = player.max_health // 2
+                mana_amount = player.max_mana // 2
+                player.health = min(player.max_health, player.health + heal_amount)
+                player.mana = min(player.max_mana, player.mana + mana_amount)
+                player.gold -= 20
+                print_slow(f"Rested and recovered {heal_amount} HP and {mana_amount} MP!")
+            else:
+                print_slow("Not enough gold to rest!")
+                
+        elif choice == "5":
+            show_abilities(player)
+            
+        elif choice == "6":
+            confirm = input("Are you sure you want to quit? (y/n): ").lower()
+            if confirm == 'y':
+                print_slow("Thanks for playing!")
+                break
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print_slow("\nGame terminated by user.")
+    except Exception as e:
+        print_slow(f"\nAn error occurred: {e}")
+        print_slow("Game terminated.")

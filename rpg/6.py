@@ -19,6 +19,8 @@ class Character:
         self.status_effects = []
         self.armor = {"Basic Leather": 5}
         self.current_armor = "Basic Leather"
+        self.tech_points = 0
+        self.gadgets = {}
         
         # Initialize base abilities based on class
         self.update_abilities()
@@ -117,6 +119,30 @@ class Character:
 
         self.abilities = base_abilities
 
+# Add Gadget class
+class Gadget:
+    def __init__(self, name, rarity, effect, cost):
+        self.name = name
+        self.rarity = rarity  # common, rare, epic, legendary
+        self.effect = effect
+        self.cost = cost
+        self.charges = self.get_charges()
+        
+    def get_charges(self):
+        charges = {
+            "common": 3,
+            "rare": 2,
+            "epic": 2,
+            "legendary": 1
+        }
+        return charges.get(self.rarity, 1)
+
+    def use(self, player, enemy):
+        if self.charges > 0:
+            self.charges -= 1
+            return True
+        return False
+
 # Update Enemy class for better balance
 class Enemy:
     def __init__(self, name, health, damage, exp_reward, gold_reward, level=1):
@@ -173,7 +199,8 @@ def combat(player, enemy):
         print_slow("1. Attack")
         print_slow("2. Use Ability")
         print_slow("3. Use Item")
-        print_slow("4. Run")
+        print_slow("4. Use Gadget")
+        print_slow("5. Run")
         
         choice = input("> ")
         
@@ -216,6 +243,25 @@ def combat(player, enemy):
                 continue
                 
         elif choice == "4":
+            if player.gadgets:
+                print_slow("\nAvailable Gadgets:")
+                for name, gadget in player.gadgets.items():
+                    if gadget.charges > 0:
+                        print_slow(f"{name} ({gadget.charges} charges)")
+                
+                gadget_choice = input("Choose gadget (or 'back'): ").title()
+                if gadget_choice in player.gadgets:
+                    gadget = player.gadgets[gadget_choice]
+                    if gadget.use(player, enemy):
+                        process_gadget_effect(player, enemy, gadget.effect)
+                    else:
+                        print_slow("No charges remaining!")
+                        continue
+            else:
+                print_slow("No gadgets available!")
+                continue
+
+        elif choice == "5":
             if random.random() < 0.5:
                 print_slow("You successfully fled from combat!")
                 return "fled"  # Changed return value to indicate fled status
@@ -244,6 +290,11 @@ def combat(player, enemy):
     player.mana = min(player.max_mana, player.mana + mana_restore)
     print_slow(f"Victory healing: Recovered {heal_amount} HP and {mana_restore} MP!")
     
+    # In combat victory section
+    tech_points_reward = int(10 * (1 + (enemy.level * 0.5)))
+    player.tech_points += tech_points_reward
+    print_slow(f"Gained {tech_points_reward} Tech Points!")
+    
     # In combat function, modify level up section
     if player.exp >= calculate_exp_requirement(player.level):  # Scaling exp requirement
         player.level += 1
@@ -258,6 +309,35 @@ def combat(player, enemy):
         print_slow(f"Max MP increased by {rewards['mana']}!")
     
     return True
+
+# Add gadget effect processing
+def process_gadget_effect(player, enemy, effect):
+    if "damage" in effect:
+        enemy.health -= effect["damage"]
+        print_slow(f"Gadget deals {effect['damage']} damage!")
+        
+    if "heal" in effect:
+        heal = effect["heal"]
+        player.health = min(player.max_health, player.health + heal)
+        print_slow(f"Gadget heals for {heal} HP!")
+        
+    if "flee" in effect:
+        if random.random() < effect["chance"]:
+            print_slow("Gadget allows you to escape!")
+            return "fled"
+            
+    if "defense" in effect:
+        player.status_effects.append({
+            "name": "Shield",
+            "defense": effect["defense"],
+            "duration": effect["duration"]
+        })
+        print_slow(f"Shield activated for {effect['duration']} turns!")
+        
+    if "revive" in effect:
+        if player.health <= 0:
+            player.health = int(player.max_health * effect["health_percent"])
+            print_slow("Phoenix Protocol activates! You're revived!")
 
 # Update experience and level scaling
 def calculate_exp_requirement(level):
@@ -329,6 +409,61 @@ def shop(player):
                 print_slow("Not enough gold!")
         else:
             print_slow("Invalid item!")
+
+# Add Gadget Shop function
+def gadget_shop(player):
+    gadgets = {
+        # Common gadgets
+        "Smoke Bomb": Gadget("Smoke Bomb", "common", 
+            {"effect": "flee", "chance": 0.8}, 50),
+        "Health Generator": Gadget("Health Generator", "common",
+            {"heal": 50}, 50),
+        
+        # Rare gadgets
+        "Lightning Rod": Gadget("Lightning Rod", "rare",
+            {"damage": 80, "stun": 1}, 100),
+        "Shield Generator": Gadget("Shield Generator", "rare",
+            {"defense": 30, "duration": 3}, 100),
+            
+        # Epic gadgets
+        "Time Distorter": Gadget("Time Distorter", "epic",
+            {"extra_turns": 1}, 200),
+        "Damage Amplifier": Gadget("Damage Amplifier", "epic",
+            {"damage_boost": 1.5, "duration": 2}, 200),
+            
+        # Legendary gadgets
+        "Ultimate Nullifier": Gadget("Ultimate Nullifier", "legendary",
+            {"damage": 200}, 500),
+        "Phoenix Protocol": Gadget("Phoenix Protocol", "legendary",
+            {"revive": True, "health_percent": 0.5}, 500)
+    }
+    
+    while True:
+        print_slow("\n=== Gadget Shop ===")
+        print_slow(f"Tech Points: {player.tech_points}")
+        print_slow("\nAvailable Gadgets:")
+        
+        for name, gadget in gadgets.items():
+            if name not in player.gadgets:
+                print_slow(f"{name} ({gadget.rarity.title()}) - {gadget.cost} TP")
+                print_slow(f"  Effect: {gadget.effect}")
+                print_slow(f"  Charges: {gadget.get_charges()}")
+        
+        print_slow("\nEnter gadget name to buy (or 'exit' to leave):")
+        choice = input("> ").title()
+        
+        if choice.lower() == "exit":
+            break
+            
+        if choice in gadgets and choice not in player.gadgets:
+            if player.tech_points >= gadgets[choice].cost:
+                player.tech_points -= gadgets[choice].cost
+                player.gadgets[choice] = gadgets[choice]
+                print_slow(f"Bought {choice}!")
+            else:
+                print_slow("Not enough Tech Points!")
+        else:
+            print_slow("Invalid gadget or already owned!")
 
 def show_abilities(player):
     """Display available abilities and their descriptions"""
@@ -532,7 +667,9 @@ def main():
         print_slow("3. Check inventory")
         print_slow("4. Rest (Heal 50% HP/MP for 20 gold)")
         print_slow("5. Show abilities")
-        print_slow("6. Quit")
+        print_slow("6. Visit gadget shop")
+        print_slow("7. Visit Gadget Shop")
+        print_slow("7. Quit")
         
         choice = input("> ")
         
@@ -589,8 +726,11 @@ def main():
                 
         elif choice == "5":
             show_abilities(player)
-            
+        
         elif choice == "6":
+            gadget_shop(player)
+            
+        elif choice == "7":
             confirm = input("Are you sure you want to quit? (y/n): ").lower()
             if confirm == 'y':
                 print_slow("Thanks for playing!")

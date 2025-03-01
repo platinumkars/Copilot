@@ -527,21 +527,12 @@ class Bandit(Character):
 class Game:
     def __init__(self):
         self.initialize_game_systems()
-        self.quests = [
-            {
-                "name": "The First Trial",
-                "enemy": Goblin(),
-                "required_level": 1,
-                "reward": 50,
-                "environment": "day"
-            },
-            # ... other quests ...
-        ]
+        self.player = None  # Initialize player before character creation
         self.current_quest = 0
         self.gold = 100
         self.turns = 0
         self.time_of_day = 'day'
-        self.player = self.create_character()
+        self.player = self.create_character()  # Create character after systems init
 
     def upgrade_to_extended(self):
         """Upgrade basic game to extended version"""
@@ -573,9 +564,30 @@ class Game:
         self.active_buffs = []
         self.quest_log = []
         self.achievement_tracker = {}
+        self.quests = [
+            {
+                "name": "The First Trial",
+                "enemy": Goblin(),
+                "required_level": 1,
+                "reward": 50,
+                "environment": "day"
+            }
+        ]
         self.current_location = "Starting Village"
         self.turns = 0
         self.time_of_day = 'day'
+        self.gold = 100
+        self.shop_items = [
+            HealingPotion("common"),
+            HealingPotion("rare"),
+            SuperHealingPotion("rare")
+        ]
+        self.item_prices = {
+            "common": 50,
+            "rare": 100,
+            "epic": 200,
+            "legendary": 500
+        }
         
     def create_character(self):
         print("Choose your class:")
@@ -748,7 +760,7 @@ class Game:
             return
         
         print("\nInventory:")
-        for index, item in enumerate(self.player.inventory):
+        for index, item in enumerate(self.player.inventory):  # Use enumerate instead
             print(f"{index + 1}. {item.name}")
         
         try:
@@ -807,11 +819,28 @@ class Game:
         """Confirm if player wants to exit"""
         return input("\nAre you sure you want to exit? (y/n): ").lower() == 'y'
 
+    def handle_critical_error(self, error):
+        """Handle critical game errors"""
+        print(f"\nCritical Error: {error}")
+        try:
+            self.save_game_state()
+            print("Game state saved successfully")
+            return True
+        except Exception as e:
+            print(f"Failed to save game state: {e}")
+            return False
+
 class ExtendedGame(Game):
     def __init__(self):
-        super().__init__()
+        super().__init__()  # Call parent class init first
         self.initialize_extended_systems()
-    
+        self.current_weather = 'clear'
+        self.faction_relations = {
+            'village': 0,
+            'guild': 0,
+            'kingdom': 0
+        }
+
     def play(self):
         """Main game loop for extended game"""
         try:
@@ -824,6 +853,8 @@ class ExtendedGame(Game):
                 try:
                     self.update_game_state()
                     self.process_world_events()
+                    self.check_environmental_hazards()
+                    self.update_faction_relations()
                     self.show_enhanced_status()
                     
                     choice = self.get_extended_player_choice()
@@ -846,18 +877,29 @@ class ExtendedGame(Game):
             self.cleanup_game_resources()
             self.show_final_statistics()
 
+    def generate_random_event(self):
+        """Generate a random world event"""
+        events = [
+            {'type': 'combat', 'description': 'Ambush!', 'enemy': Bandit()},
+            {'type': 'treasure', 'description': 'Found a chest!', 'gold': 50},
+            {'type': 'weather', 'description': 'Storm approaching!', 'effect': 'storm'}
+        ]
+        return random.choice(events)
+
+    def handle_world_event(self, event):
+        """Handle a world event"""
+        print(f"\nWorld Event: {event['description']}")
+        if event['type'] == 'combat':
+            self.enhanced_battle(event['enemy'], "normal")
+        elif event['type'] == 'treasure':
+            self.gold += event['gold']
+            print(f"Found {event['gold']} gold!")
+        elif event['type'] == 'weather':
+            self.current_weather = event['effect']
+            print(f"Weather changed to {event['effect']}!")
+
     def initialize_extended_systems(self):
         """Initialize extended game specific systems"""
-        self.side_quests = []
-        self.world_events = []
-        self.crafting_recipes = self.initialize_crafting()
-        self.weather_system = {
-            'clear': {'accuracy': 1.0, 'speed': 1.0},
-            'rain': {'accuracy': 0.8, 'magic': 1.2},
-            'storm': {'accuracy': 0.6, 'magic': 1.4, 'physical': 0.8},
-            'fog': {'accuracy': 0.7, 'stealth': 1.3},
-            'wind': {'ranged': 0.7, 'speed': 1.2}
-        }
         self.current_weather = 'clear'
         self.weather_duration = 0
         self.reputation = {
@@ -869,465 +911,7 @@ class ExtendedGame(Game):
         self.max_combo = 5
         self.combo_multiplier = 0.1
         self.materials = {'wood': 0, 'iron': 0, 'crystal': 0, 'herb': 0}
-        self.initialize_side_quests()
-
-    def initialize_crafting(self):
-        return {
-            'healing_potion': {
-                'materials': {'herb': 2, 'crystal': 1},
-                'skill_req': {'alchemy': 5},
-                'result': HealingPotion('common')
-            },
-            'super_healing_potion': {
-                'materials': {'herb': 4, 'crystal': 2},
-                'skill_req': {'alchemy': 10},
-                'result': SuperHealingPotion('rare')
-            },
-            'enchanted_weapon': {
-                'materials': {'iron': 3, 'crystal': 2},
-                'skill_req': {'smithing': 8},
-                'result': Item('Enchanted Weapon', {'buff': {'attack': 0.2}}, 'rare')
-            }
-        }
-
-    def update_game_state(self):
-        super().update_game_state()
-        self.update_weather()
-        self.update_reputation_titles()
-        self.update_world_events()
-        self.gather_materials()
-
-    def update_weather(self):
-        if self.weather_duration <= 0:
-            old_weather = self.current_weather
-            weathers = list(self.weather_system.keys())
-            weights = [0.4 if w == 'clear' else 0.15 for w in weathers]
-            self.current_weather = random.choices(weathers, weights=weights)[0]
-            self.weather_duration = random.randint(3, 8)
-            if old_weather != self.current_weather:
-                print(f"\nWeather changed from {old_weather} to {self.current_weather}!")
-        self.weather_duration -= 1
-
-    def update_reputation_titles(self):
-        titles = {
-            'village': {
-                -100: 'Outcast', -50: 'Troublemaker', 0: 'Stranger',
-                50: 'Helper', 100: 'Friend', 200: 'Hero'
-            },
-            'guild': {
-                -100: 'Betrayer', -50: 'Dropout', 0: 'Initiate',
-                50: 'Member', 100: 'Veteran', 200: 'Master'
-            },
-            'kingdom': {
-                -100: 'Enemy', -50: 'Suspicious', 0: 'Unknown',
-                50: 'Trusted', 100: 'Noble', 200: 'Champion'
-            }
-        }
-        
-        for faction, rep in self.reputation.items():
-            value = rep['value']
-            for threshold, title in sorted(titles[faction].items()):
-                if value >= threshold:
-                    if rep['title'] != title:
-                        print(f"\nYou've earned a new title in {faction}: {title}!")
-                        rep['title'] = title
-
-    def gather_materials(self):
-        if random.random() < 0.3:  # 30% chance to find materials
-            material = random.choice(list(self.materials.keys()))
-            amount = random.randint(1, 3)
-            self.materials[material] += amount
-            print(f"\nFound {amount} {material}!")
-
-    def craft_item(self):
-        print("\nCrafting Menu:")
-        for item, recipe in self.crafting_recipes.items():
-            print(f"\n{item}:")
-            print("Required materials:")
-            for material, amount in recipe['materials'].items():
-                print(f"- {material}: {amount}")
-            print("Required skills:")
-            for skill, level in recipe['skill_req'].items():
-                print(f"- {skill} level {level}")
-
-        choice = input("\nWhat would you like to craft? (or 'cancel'): ").lower()
-        if choice in self.crafting_recipes:
-            recipe = self.crafting_recipes[choice]
-            
-            # Check materials
-            can_craft = True
-            for material, amount in recipe['materials'].items():
-                if self.materials.get(material, 0) < amount:
-                    print(f"Not enough {material}!")
-                    can_craft = False
-            
-            # Check skill requirements (simplified)
-            for skill, level in recipe['skill_req'].items():
-                if getattr(self.player, skill, 0) < level:
-                    print(f"Insufficient {skill} level!")
-                    can_craft = False
-            
-            if can_craft:
-                # Consume materials
-                for material, amount in recipe['materials'].items():
-                    self.materials[material] -= amount
-                
-                # Create item
-                crafted_item = recipe['result']
-                self.player.inventory.append(crafted_item)
-                print(f"\nSuccessfully crafted {crafted_item.name}!")
-                
-                # Chance for bonus effect
-                if random.random() < 0.1:
-                    print("Perfect craft! Item quality increased!")
-                    crafted_item.effects = {k: v * 1.2 for k, v in crafted_item.effects.items()}
-
-    def enhanced_battle(self, enemy, attack_type):
-        # Apply weather effects
-        weather_mods = self.weather_system[self.current_weather]
-        original_accuracy = self.player.accuracy if hasattr(self.player, 'accuracy') else 1.0
-        self.player.accuracy = original_accuracy * weather_mods.get('accuracy', 1.0)
-
-        # Initialize combat state
-        self.combat_combo = 0
-        consecutive_hits = 0
-
-        while self.player.is_alive() and enemy.is_alive():
-            # Player turn with combo system
-            damage_multiplier = 1 + (self.combat_combo * self.combo_multiplier)
-            
-            if attack_type == "special":
-                success = self.player.special_ability()
-                if success and isinstance(success, bool):
-                    consecutive_hits += 1
-            else:
-                self.player.attack_enemy(enemy, attack_type)
-                if enemy.hp < enemy.max_hp:  # Hit landed
-                    consecutive_hits += 1
-                else:
-                    consecutive_hits = 0
-
-            # Update combo
-            if consecutive_hits > 1:
-                self.combat_combo = min(self.max_combo, self.combat_combo + 1)
-                print(f"Combo x{self.combat_combo}! Damage bonus: {damage_multiplier:.1f}x")
-
-            # Enemy turn with dynamic AI
-            if enemy.is_alive():
-                if enemy.hp < enemy.max_hp * 0.3:  # Low HP behavior
-                    if random.random() < 0.4:
-                        enemy.special_ability()
-                    else:
-                        enemy.attack_enemy(self.player)
-                elif self.combat_combo >= 3:  # Counter high combos
-                    if random.random() < 0.6:
-                        print(f"{enemy.name} attempts to break your combo!")
-                        enemy.special_ability()
-                        self.combat_combo = max(0, self.combat_combo - 2)
-                else:
-                    enemy.attack_enemy(self.player)
-
-            # Reset accuracy after battle
-            self.player.accuracy = original_accuracy
-
-    def play(self):
-        """Main game loop for extended game"""
-        self.initialize_extended_game()
-        
-        print(f"\n{'='*60}")
-        print(f"Welcome to the Enhanced RPG Game, {self.player.name}!")
-        print(f"Current Location: {self.current_location}")
-        print(f"{'='*60}\n")
-
-        while self.player.is_alive():
-            try:
-                self.update_game_state()
-                self.process_world_events()
-                self.show_enhanced_status()
-                
-                choice = self.get_extended_player_choice()
-                if choice == 'x':
-                    if self.confirm_exit():
-                        break
-                else:
-                    self.process_extended_choice(choice)
-                
-                if self.settings.get('auto_save', True):
-                    self.save_game_state()
-                    
-            except GameException as e:
-                print(f"Game error: {e}")
-                continue
-            except Exception as e:
-                print(f"Unexpected error: {e}")
-                if not self.recover_game_state():
-                    break
-        
-        self.cleanup_game_resources()
-
-    def play(self):
-        self.settings = {
-            'difficulty': 'normal',
-            'permadeath': False,
-            'show_tutorials': True,
-            'auto_save': True
-        }
-        self.active_buffs = []
-        self.quest_log = []
-        self.achievement_tracker = {}
-        self.faction_quests = {}
-        self.daily_challenges = []
-        self.player_stats = {'wins': 0, 'losses': 0, 'critical_hits': 0}
-        self.discovered_locations = set()
-        self.current_location = "Starting Village"
-
-        # Initialize game systems
-        self.load_game_state()
-        self.generate_daily_challenges()
-        self.setup_achievement_system()
-        self.initialize_faction_relationships()
-
-        print(f"\n{'='*60}")
-        print(f"Welcome to the Enhanced RPG Game, {self.player.name}!")
-        print(f"Current Location: {self.current_location}")
-        print(f"{'='*60}\n")
-
-        if self.settings['show_tutorials']:
-            self.show_tutorial()
-
-        while self.player.is_alive():
-            try:
-                self.update_game_state()
-                self.process_active_buffs()
-                self.check_achievements()
-                self.update_daily_challenges()
-                
-                if self.settings['auto_save']:
-                    self.save_game_state()
-
-                self.show_enhanced_status()
-                
-                actions = {
-                    'a': ("Attack Enemy", "Engage in combat with current quest enemy"),
-                    's': ("Special Attack", "Use character's special abilities"),
-                    'c': ("Craft Items", "Create new items from materials"),
-                    'q': ("Quest Log", "View active and completed quests"),
-                    'f': ("Faction Status", "Check your standing with various factions"),
-                    'u': ("Use Item", "Use an item from your inventory"),
-                    'v': ("Visit Shop", "Buy and sell items"),
-                    't': ("Train Skills", "Improve your character's abilities"),
-                    'r': ("Rest", "Recover HP and status"),
-                    'i': ("Inventory", "Manage your items"),
-                    'm': ("Map", "View discovered locations and travel"),
-                    'd': ("Daily Challenges", "View special daily tasks"),
-                    'o': ("Options", "Adjust game settings"),
-                    'h': ("Help", "View game instructions"),
-                    'x': ("Exit Game", "Save and quit")
-                }
-                
-                print("\nAvailable Actions:")
-                for key, (action, desc) in actions.items():
-                    print(f"[{key}] {action:<15} - {desc}")
-
-                choice = input("\nChoose your action: ").lower()
-                
-                if choice in actions:
-                    if choice == 'a':
-                        self.enhanced_battle(self.quests[self.current_quest]["enemy"], "normal")
-                    elif choice == 's':
-                        self.show_special_attacks()
-                        attack_type = input("Choose special attack type: ")
-                        self.enhanced_battle(self.quests[self.current_quest]["enemy"], attack_type)
-                    elif choice == 'c':
-                        self.advanced_crafting_system()
-                    elif choice == 'q':
-                        self.show_quest_log()
-                    elif choice == 'f':
-                        self.show_faction_status()
-                    elif choice == 'm':
-                        self.show_map_and_travel()
-                    elif choice == 'd':
-                        self.show_daily_challenges()
-                    elif choice == 'o':
-                        self.show_options_menu()
-                    elif choice == 'h':
-                        self.show_help()
-                    elif choice == 'x':
-                        if self.confirm_exit():
-                            break
-                else:
-                    print("Invalid action. Press 'h' for help.")
-
-                if self.settings['permadeath'] and self.player.hp <= 0:
-                    print("\nGame Over - Permadeath Mode")
-                    break
-
-            except Exception as e:
-                print(f"An error occurred: {e}")
-                if input("Continue playing? (y/n): ").lower() != 'y':
-                    break
-
-        # Save final game state
-        self.save_game_state()
-        print("\nThanks for playing!")
-        self.show_final_stats()
-        print(f"Welcome to the Extended RPG Game - Epic Edition, {self.player.name}!")
-        self.initialize_game_systems()
-        
-        while self.player.is_alive():
-            try:
-                # Dynamic game state updates
-                self.update_game_state()
-                self.process_world_events()
-                self.check_environmental_hazards()
-                self.update_faction_relations()
-                
-                # Status display with advanced formatting
-                self.show_enhanced_status()
-                self.display_active_effects()
-                self.show_weather_impact()
-                
-                actions = {
-                    'a': ("Attack", self.combat_menu),
-                    's': ("Special Abilities", self.special_abilities_menu),
-                    'c': ("Crafting & Alchemy", self.advanced_crafting_system),
-                    'q': ("Quest Journal", self.quest_management),
-                    'f': ("Faction Relations", self.faction_interaction),
-                    'u': ("Use Item/Skill", self.item_skill_menu),
-                    'v': ("Trading & Commerce", self.enhanced_shop_system),
-                    't': ("Training & Skills", self.skill_development_system),
-                    'r': ("Rest & Recovery", self.advanced_rest_system),
-                    'i': ("Inventory Management", self.inventory_system),
-                    'm': ("World Map & Travel", self.world_navigation),
-                    'p': ("Party Management", self.party_system),
-                    'd': ("Character Development", self.character_progression),
-                    'o': ("Game Options", self.settings_menu),
-                    'h': ("Help & Tutorial", self.help_system),
-                    'x': ("Save & Exit", self.save_and_exit)
-                }
-
-                # Dynamic action availability based on player state
-                available_actions = self.filter_available_actions(actions)
-                
-                print("\nAvailable Actions:")
-                for key, (action, _) in available_actions.items():
-                    status = self.get_action_status(key)
-                    print(f"[{key}] {action:<20} {status}")
-
-                choice = input("\nEnter your action (h for help): ").lower()
-                
-                if choice in available_actions:
-                    action_name, action_func = available_actions[choice]
-                    print(f"\nExecuting: {action_name}")
-                    
-                    try:
-                        result = action_func()
-                        self.process_action_result(result)
-                    except GameException as e:
-                        print(f"Action failed: {e}")
-                        self.handle_game_exception(e)
-                elif choice == 'x':
-                    if self.confirm_exit():
-                        self.save_game_state()
-                        break
-                else:
-                    print("Invalid action. Type 'h' for help.")
-
-                # Post-action processing
-                self.apply_action_consequences()
-                self.check_quest_progress()
-                self.update_achievements()
-                
-                # Auto-save if enabled
-                if self.settings.get('auto_save', True):
-                    self.quick_save()
-
-                # Check for game-ending conditions
-                if self.check_game_over_conditions():
-                    break
-
-            except Exception as e:
-                self.handle_critical_error(e)
-                if not self.recover_game_state():
-                    print("Critical error: Unable to recover game state")
-                    break
-
-    def process_action_result(self, result):
-        """Process the result of an action"""
-        if not hasattr(self, 'player'):
-            raise GameException("Player not initialized")
-        
-        if result and isinstance(result, dict):
-            if 'exp' in result:
-                self.player.gain_experience(result['exp'])
-            if 'gold' in result:
-                self.gold += result['gold']
-            if 'items' in result:
-                for item in result['items']:
-                    self.player.inventory.append(item)
-
-    def get_extended_player_choice(self):
-        """Get player choice with extended options"""
-        actions = {
-            'a': "Attack Enemy",
-            's': "Special Attack",
-            'c': "Craft Items",
-            'q': "Quest Log",
-            'f': "Faction Status",
-            'i': "Inventory",
-            'x': "Exit Game"
-        }
-        
-        print("\nAvailable Actions:")
-        for key, action in actions.items():
-            print(f"[{key}] {action}")
-        
-        return input("\nChoose your action: ").lower()
-
-    def process_extended_choice(self, choice):
-        """Process player choice in extended game"""
-        if choice == 'a':
-            self.enhanced_battle(self.quests[self.current_quest]["enemy"], "normal")
-        elif choice == 's':
-            self.enhanced_battle(self.quests[self.current_quest]["enemy"], "special")
-        elif choice == 'c':
-            self.craft_item()
-        elif choice == 'q':
-            self.show_quest_log()
-        elif choice == 'f':
-            self.show_faction_status()
-        elif choice == 'i':
-            self.show_inventory()
-        else:
-            print("Invalid choice!")
-
-    def show_final_statistics(self):
-        """Display final game statistics"""
-        print("\nFinal Statistics:")
-        print(f"Quests Completed: {len([q for q in self.quests if q.get('completed', False)])}")
-        print(f"Total Gold Earned: {self.gold}")
-        print(f"Player Level: {self.player.level}")
-        print(f"Time Played: {self.turns} turns")
-
-    def process_world_events(self):
-        """Process random world events"""
-        if random.random() < 0.1:  # 10% chance for world event
-            event = self.generate_random_event()
-            self.handle_world_event(event)
-
-    def show_enhanced_status(self):
-        """Show enhanced game status including weather and reputation"""
-        super().show_status()  # Show basic status first
-        print(f"\nWeather: {self.current_weather}")
-        print("\nReputation:")
-        for faction, data in self.reputation.items():
-            print(f"{faction}: {data['title']} ({data['value']})")
-
-    def handle_critical_error(self, error):
-        """Handle critical game errors"""
-        print(f"\nCritical Error: {error}")
-        self.save_game_state()  # Try to save current state
-        return self.recover_game_state()
+        self.initialize_crafting()
 
 if __name__ == "__main__":
     try:

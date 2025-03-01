@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Character</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Create Your Character</h2>
+        <form method="POST">
+            <div class="form-group">
+                <label>Character Name:</label>
+                <input type="text" name="name" required title="Enter character name" placeholder="Enter character name">
+            </div>
+            <div class="form-group">
+                <label>Choose Class:</label>
+                <select name="class" required title="Choose your character class">
+                    <option value="1">Warrior</option>
+                    <option value="2">Mage</option>
+                    <option value="3">Paladin</option>
+                    <option value="4">Necromancer</option>
+                    <option value="5">Assassin</option>
+                    <option value="6">Druid</option>
+                </select>
+            </div>
+            <button type="submit" class="button">Create Character</button>
+        </form>
+    </div>
+</body>
+</html>

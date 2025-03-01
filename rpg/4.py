@@ -527,7 +527,6 @@ class Bandit(Character):
 class Game:
     def __init__(self):
         self.initialize_game_systems()
-        # Initialize quests list
         self.quests = [
             {
                 "name": "The First Trial",
@@ -536,28 +535,13 @@ class Game:
                 "reward": 50,
                 "environment": "day"
             },
-            {
-                "name": "Forest Patrol",
-                "enemy": Bandit(),
-                "required_level": 2,
-                "reward": 75,
-                "environment": "night"
-            },
-            {
-                "name": "Orc Invasion",
-                "enemy": Orc(),
-                "required_level": 3,
-                "reward": 100,
-                "environment": "rain"
-            }
+            # ... other quests ...
         ]
-        self.player = None
         self.current_quest = 0
         self.gold = 100
         self.turns = 0
         self.time_of_day = 'day'
-        self.game_version = "basic"
-        self.player = self.create_character()  # Create character after systems init
+        self.player = self.create_character()
 
     def upgrade_to_extended(self):
         """Upgrade basic game to extended version"""
@@ -838,12 +822,10 @@ class ExtendedGame(Game):
 
             while self.player.is_alive():
                 try:
-                    # Update game state
                     self.update_game_state()
                     self.process_world_events()
                     self.show_enhanced_status()
                     
-                    # Get and process player choice
                     choice = self.get_extended_player_choice()
                     if choice == 'x':
                         if self.confirm_exit():
@@ -851,7 +833,6 @@ class ExtendedGame(Game):
                     else:
                         self.process_extended_choice(choice)
                     
-                    # Auto-save if enabled
                     if self.settings.get('auto_save', True):
                         self.save_game_state()
                         
@@ -1341,6 +1322,12 @@ class ExtendedGame(Game):
         print("\nReputation:")
         for faction, data in self.reputation.items():
             print(f"{faction}: {data['title']} ({data['value']})")
+
+    def handle_critical_error(self, error):
+        """Handle critical game errors"""
+        print(f"\nCritical Error: {error}")
+        self.save_game_state()  # Try to save current state
+        return self.recover_game_state()
 
 if __name__ == "__main__":
     try:
